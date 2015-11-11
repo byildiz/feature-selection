@@ -571,6 +571,47 @@ void calc_scale_density_space(const vector<KeyPoint>& kp) {
 	}
 }
 
+float keypoint_dist(const KeyPoint& k1, const KeyPoint& k2) {
+	float dist = point_dist(k1.pt, k2.pt);
+	return dist;
+}
+
+float point_dist(const Point2f& p1, const Point2f& p2) {
+	float x_dist = p1.x - p2.x;
+	float y_dist = p1.y - p2.y;
+	float dist;
+	dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+	return dist;
+}
+
+bool response_comparator(const KeyPoint& p1, const KeyPoint& p2) {
+	return p1.response > p2.response;
+}
+
+float get_density(const KeyPoint& k) {
+	int x = k.pt.x;
+	int y = k.pt.y;
+	return density_space[x][y];
+}
+
+bool density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
+	return get_density(p1) > get_density(p2);
+}
+
+float get_scale_density(const KeyPoint& k) {
+	int x = k.pt.x;
+	int y = k.pt.y;
+	return scale_density_space[x][y];
+}
+
+bool scale_density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
+	return get_scale_density(p1) > get_scale_density(p2);
+}
+
+bool scale_comparator(const KeyPoint& p1, const KeyPoint& p2) {
+	return p1.size > p2.size;
+}
+
 float calc_emd(int first, int second) {
 	vector<KeyPoint> keypoints_1, keypoints_2;
 	Mat desc_1, desc_2;
@@ -751,45 +792,4 @@ float emd_dist(feature_t *f1, feature_t *f2) {
 double fast_emd_dist(feature_tt *f1, feature_tt *f2) {
 	double dist = dist_mat.at<float>(*f1, *f2);
 	return dist;
-}
-
-float keypoint_dist(const KeyPoint& k1, const KeyPoint& k2) {
-	float dist = point_dist(k1.pt, k2.pt);
-	return dist;
-}
-
-float point_dist(const Point2f& p1, const Point2f& p2) {
-	float x_dist = p1.x - p2.x;
-	float y_dist = p1.y - p2.y;
-	float dist;
-	dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
-	return dist;
-}
-
-bool response_comparator(const KeyPoint& p1, const KeyPoint& p2) {
-	return p1.response > p2.response;
-}
-
-float get_density(const KeyPoint& k) {
-	int x = k.pt.x;
-	int y = k.pt.y;
-	return density_space[x][y];
-}
-
-bool density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
-	return get_density(p1) > get_density(p2);
-}
-
-float get_scale_density(const KeyPoint& k) {
-	int x = k.pt.x;
-	int y = k.pt.y;
-	return scale_density_space[x][y];
-}
-
-bool scale_density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
-	return get_scale_density(p1) > get_scale_density(p2);
-}
-
-bool scale_comparator(const KeyPoint& p1, const KeyPoint& p2) {
-	return p1.size > p2.size;
 }

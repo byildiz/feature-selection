@@ -2,7 +2,7 @@
 
 ulimit -s unlimited
 
-dataset="art_50"
+dataset=$1
 methods=( "scale_density" "response" "scale" "response_density" )
 numbers=( -2 1 -1 2 )
 gd="200"

@@ -60,7 +60,6 @@ def main():
 		false_negatives = []
 		img_values = []
 		group1 = int(find_group(img1))
-		pr = False
 		for img2, dist, img1 in imgs:
 			group2 = int(find_group(img2))
 			if group1 == group2:
@@ -79,11 +78,6 @@ def main():
 			recall_sum[img_count-1] += recall
 			precision_sum[img_count-1] += precision
 			counts[img_count-1] += 1
-			if img_count == 1 and precision == 0:
-				pr = True
-				print img1, img_count, precision
-			if pr:
-				print "\t", img2, dist
 			# img_values.append((recall, precision, dist))
 			# print "{:>10f} {:>10f} {:>10f}".format(recall, precision, dist)
 		# values[img1] = img_values

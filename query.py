@@ -35,6 +35,8 @@ def main():
 		img2 = line[1]
 		dist = line[2]
 		norm = (dist - min_dist) / (max_dist - min_dist) * 100
+		if not results.get(img1):
+			results[img1] = []
 		if norm < th:
 			update_results(results, img1, img2, norm)
 		#print "%-5s %-5s %.2f" % (img1, img2, norm)
@@ -64,7 +66,10 @@ def main():
 				false_negatives.append(img2)
 		
 		recall = true_count / group_counts[group1] * 100
-		precision = true_count / len(imgs) * 100
+		if len(imgs) == 0:
+			precision = 100
+		else:
+			precision = true_count / len(imgs) * 100
 		total_recall += recall
 		total_precision += precision
 
