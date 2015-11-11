@@ -330,12 +330,12 @@ void extract_descriptors(int index, int feature_count) {
 //		selected_keypoints.push_back(keypoints[i]);
 //	extractor->compute(current_img, selected_keypoints, descriptors);
 
-	// Mat img_keypoints(current_img);
+	// Mat img_with_kp(current_img);
 	// // Mat white = Mat::zeros(current_img.rows, current_img.cols, CV_8U);
-	// // drawKeypoints(white, selected_keypoints, img_keypoints, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	// drawKeypoints(current_img, selected_keypoints, img_keypoints,
+	// // drawKeypoints(white, selected_keypoints, img_with_kp, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	// drawKeypoints(current_img, selected_keypoints, img_with_kp,
 	// 		Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	// imshow(img_path, img_keypoints);
+	// imshow(img_path, img_with_kp);
 	// waitKey(0);
 //
 //	Mat img_density;
@@ -640,24 +640,12 @@ float calc_emd(int first, int second) {
 	signature_2.Weights = new float[feature_count_2];
 
 	for (int i = 0; i < feature_count_1; ++i) {
-		if (sort_type < 0) {
-			// signature_1.Weights[i] = keypoints_1.at(i).size;
-			signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
-		} else {
-			signature_1.Weights[i] = keypoints_1.at(i).response * 100;
-		}
-
+		signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
 		signature_1.Features[i] = i;
 	}
 
 	for (int i = 0; i < feature_count_2; ++i) {
-		if (sort_type < 0) {
-			// signature_2.Weights[i] = keypoints_2.at(i).size;
-			signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
-		} else {
-			signature_2.Weights[i] = keypoints_2.at(i).response * 100;
-		}
-
+		signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
 		signature_2.Features[i] = i;
 	}
 
@@ -701,24 +689,12 @@ double calc_fast_emd(int first, int second) {
 	signature_2.Weights = new double[feature_count_2];
 
 	for (int i = 0; i < feature_count_1; ++i) {
-		if (sort_type < 0) {
-			// signature_1.Weights[i] = keypoints_1.at(i).size;
-			signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
-		} else {
-			signature_1.Weights[i] = keypoints_1.at(i).response * 100;
-		}
-
+		signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
 		signature_1.Features[i] = i;
 	}
 
 	for (int i = 0; i < feature_count_2; ++i) {
-		if (sort_type < 0) {
-			// signature_2.Weights[i] = keypoints_2.at(i).size;
-			signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
-		} else {
-			signature_2.Weights[i] = keypoints_2.at(i).response * 100;
-		}
-
+		signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
 		signature_2.Features[i] = i;
 	}
 
