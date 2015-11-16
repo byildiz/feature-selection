@@ -15,7 +15,7 @@ def main():
 	filepath = args[1]
 	results = {}
 	max_dist = 0.0
-	min_dist = 9999999999.0
+	min_dist = float('inf')
 	lines = []
 
 	file = open(filepath, "r");

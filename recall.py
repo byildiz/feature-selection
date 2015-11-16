@@ -7,12 +7,11 @@ import math
 
 def main():
 	args = sys.argv[1:]
-	if len(args) != 2:
-		print 'Usage: recall.py <recall> <results_file>'
+	if len(args) != 1:
+		print 'Usage: recall.py <results_file>'
 		sys.exit(1)
 
-	recall_th = float(args[0])
-	filepath = args[1]
+	filepath = args[0]
 	results = {}
 	max_dist = 0
 	lines = []

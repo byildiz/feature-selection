@@ -7,14 +7,15 @@ import math
 
 def main():
 	args = sys.argv[1:]
-	if len(args) != 2:
-		print 'Usage: recall_original.py <recall> <results_file>'
+	if len(args) < 1:
+		print 'Usage: recall.py <results_file> <original>'
 		sys.exit(1)
 
-	recall_th = float(args[0])
-	filepath = args[1]
+	filepath = args[0]
+	only_org = bool(args[1]) if len(args) == 2 else False
 	results = {}
 	max_dist = 0
+	min_dist = float('inf')
 	lines = []
 
 	file = open(filepath, "r");
@@ -25,14 +26,18 @@ def main():
 		dist = float(columns[2])
 		if dist > max_dist:
 			max_dist = dist
-		var1 = find_variation(img1)
-		var2 = find_variation(img2)
-		if var1 == '0':
-			update_results(results, img1, img2, dist, False)
-		if var2 == '0':
-			update_results(results, img2, img1, dist, False)
+		if dist < min_dist:
+			min_dist = dist
+		lines.append((img1, img2, dist))
+
+	for line in lines:
+		img1 = line[0]
+		img2 = line[1]
+		dist = line[2]
+		norm = (dist - min_dist) / (max_dist - min_dist) * 100
+		update_results(results, img1, img2, norm)
 		#print "%-5s %-5s %.2f" % (img1, img2, norm)
-	
+		
 	# count variations and sort by dist
 	group_counts = [0]*1000
 	var_counts = [0]*51
@@ -44,21 +49,34 @@ def main():
 		results[img1] = sorted(results[img1], cmp=dist_cmp)
 
 	results = sorted(results.items(), key=path_key)
+
+	# for img1, imgs in results:
+	# 	print img1
+	# 	for img2, dist, img1 in imgs:
+	# 		print "\t", img2, dist
 	
-	total_img_count = 509
+	total_img_count = len(results)
 	values = {}
-	precision_sum = [0]*total_img_count
-	recall_sum = [0]*total_img_count
+	precision_sum = [0]*101
+	counts = [0]*101
+	recall_sum = [0]*101
 	variation_errors = [0] * 51
 	total_precision = 0.0
 	total_recall = 0.0
 	for img1, imgs in results:
+		if only_org:
+			var1 = int(find_variation(img1))
+			if var1 != 0:
+				continue
 		true_count = 0.0
 		false_count = 0.0
 		img_count = 0
 		false_negatives = []
 		img_values = []
 		group1 = int(find_group(img1))
+		last_dist = 0;
+		last_recall = 0;
+		last_precision = 100;
 		for img2, dist, img1 in imgs:
 			group2 = int(find_group(img2))
 			if group1 == group2:
@@ -68,27 +86,40 @@ def main():
 				variation_errors[int(find_variation(img2))] += 1
 				false_negatives.append(img2)
 			img_count += 1
-			recall = true_count / 50 * 100
+			recall = true_count / (group_counts[group1]-1) * 100
 			precision = true_count / img_count * 100
 			# if (recall >= recall_th):
 			# 	total_recall += recall
 			# 	total_precision += precision
 			# 	break
-			recall_sum[img_count-1] += recall
-			precision_sum[img_count-1] += precision
+			for i in range(int(last_dist), int(dist)+1):
+				recall_sum[i] += last_recall
+				precision_sum[i] += last_precision
+				counts[i] += 1
+			last_dist = dist+1
+			last_recall = recall
+			last_precision = precision
 			# img_values.append((recall, precision, dist))
-			# print recall, precision, dist
+			# print "{:>10f} {:>10f} {:>10f}".format(recall, precision, dist)
+		for i in range(int(last_dist), 101):
+			recall_sum[i] += last_recall
+			precision_sum[i] += last_precision
+			counts[i] += 1
+		# print '-' * 30
+		# for i in range(len(recall_sum)):
+		# 	print "{:>4} {:>10f} {:>10f} {:>10f}".format(i, recall_sum[i], precision_sum[i], counts[i])
 		# values[img1] = img_values
 		# print img1 + ':', '(recall: ' + str(recall) + ')', '(precision: ' + str(precision) + ')',
 		# print false_negatives,
 		# print
 
-	for i in range(total_img_count):
-		print recall_sum[i] / len(results), precision_sum[i] / len(results)
+	print 'Image count:', total_img_count
+	print '-' * 40
+	for i in range(len(recall_sum)):
+		print recall_sum[i] / counts[i], precision_sum[i] / counts[i]
 	#print 'Variation errors:'
 	#for i in range(len(variation_errors)):
 	#	print i, variation_errors[i]
-	# print 'Image count:', total_img_count
 	# print 'Mean recall:', total_recall / total_img_count
 	# print 'Mean precision:', total_precision / total_img_count
 
