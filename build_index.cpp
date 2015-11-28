@@ -212,8 +212,8 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	// fc = fc > 10 ? fc : 10;
 
 	// not enough feature, dont use them
-	if (keypoints.size() < 10) {
-		cout << "Image " << img_path << " has not enough feature" << endl;
+	if (keypoints.size() == 0) {
+		cout << "Image " << img_path << " has no feature" << endl;
 		return 0;
 	}
 
