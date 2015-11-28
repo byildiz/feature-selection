@@ -33,13 +33,10 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-#define IMAGE_COUNT 10000
-#define IMAGE_WIDTH 1000
-
 // TODO: config
 /* CONFIGURATIONS */
 bool use_fast_emd = 1;
-float gd_dist = 200;
+float gd_dist = 350;
 /* END CONFIGURATIONS */
 
 void help();
@@ -56,9 +53,9 @@ float emd_dist(feature_t *f1, feature_t *f2);
 double fast_emd_dist(feature_tt *f1, feature_tt *f2);
 
 Mat dist_mat;
-Mat img_descriptors[IMAGE_COUNT];
-vector<KeyPoint> img_keypoints[IMAGE_COUNT];
-string img_paths[IMAGE_COUNT];
+vector<Mat> img_descriptors;
+vector<vector<KeyPoint> > img_keypoints;
+vector<string> img_paths;
 
 int main(int argc, char *argv[]) {
 	if (argc < 4) {
@@ -90,15 +87,25 @@ int main(int argc, char *argv[]) {
 	int img_count = 0;
 	vector<pair<int, int> > query_ids;
 	for (it = imgs.begin(); it != imgs.end(); ++it, ++img_count) {
-		(*it)["path"] >> img_paths[img_count];
-		read((*it)["keypoints"], img_keypoints[img_count]);
-		(*it)["descriptors"] >> img_descriptors[img_count];
+		string img_path;
+		vector<KeyPoint> img_keypoint;
+		Mat img_descriptor;
+
+		(*it)["path"] >> img_path;
+		read((*it)["keypoints"], img_keypoint);
+		(*it)["descriptors"] >> img_descriptor;
+
+		img_paths.push_back(img_path);
+		img_keypoints.push_back(img_keypoint);
+		img_descriptors.push_back(img_descriptor);
 
 		for (int i = 0; i < query_count; ++i) {
-			if (img_paths[img_count] == query_paths[i])
+			if (img_path == query_paths[i])
 				query_ids.push_back(pair<int, int>(img_count, i));
 		}
 	}
+
+	query_count = query_ids.size();
 
 	cout << "Calcing emds..." << endl;
 
@@ -160,7 +167,7 @@ int main(int argc, char *argv[]) {
 }
 
 void help() {
-	cout << "Usage: ./feature-selection <index_path> <queries_path> <out_path> <fast_thresh>" << endl;
+	cout << "Usage: ./feature-selection <index_path> <queries_path> <out_path> <fast_thresh=350>" << endl;
 }
 
 void print_progress(time_t start, int total, int& completed, int per_count) {
@@ -185,19 +192,19 @@ void print_keypoints(const vector<KeyPoint>& kp) {
 }
 
 float calc_emd(int first, int second) {
-	vector<KeyPoint> keypoints_1, keypoints_2;
-	Mat desc_1, desc_2;
+	vector<KeyPoint> *keypoints_1, *keypoints_2;
+	Mat *desc_1, *desc_2;
 
-	keypoints_1 = img_keypoints[first];
-	desc_1 = img_descriptors[first];
+	keypoints_1 = &img_keypoints[first];
+	desc_1 = &img_descriptors[first];
 
-	keypoints_2 = img_keypoints[second];
-	desc_2 = img_descriptors[second];
+	keypoints_2 = &img_keypoints[second];
+	desc_2 = &img_descriptors[second];
 
-	calc_dist_mat(desc_1, desc_2);
+	calc_dist_mat(*desc_1, *desc_2);
 
-	int feature_count_1 = keypoints_1.size();
-	int feature_count_2 = keypoints_2.size();
+	int feature_count_1 = keypoints_1->size();
+	int feature_count_2 = keypoints_2->size();
 
 	signature_t signature_1;
 	signature_t signature_2;
@@ -212,12 +219,12 @@ float calc_emd(int first, int second) {
 	signature_2.Weights = new float[feature_count_2];
 
 	for (int i = 0; i < feature_count_1; ++i) {
-		signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
+		signature_1.Weights[i] = calc_scalar_manitude(*desc_1, i);
 		signature_1.Features[i] = i;
 	}
 
 	for (int i = 0; i < feature_count_2; ++i) {
-		signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
+		signature_2.Weights[i] = calc_scalar_manitude(*desc_2, i);
 		signature_2.Features[i] = i;
 	}
 
@@ -234,19 +241,19 @@ float calc_emd(int first, int second) {
 }
 
 double calc_fast_emd(int first, int second) {
-	vector<KeyPoint> keypoints_1, keypoints_2;
-	Mat desc_1, desc_2;
+	vector<KeyPoint> *keypoints_1, *keypoints_2;
+	Mat *desc_1, *desc_2;
 
-	keypoints_1 = img_keypoints[first];
-	desc_1 = img_descriptors[first];
+	keypoints_1 = &img_keypoints[first];
+	desc_1 = &img_descriptors[first];
 
-	keypoints_2 = img_keypoints[second];
-	desc_2 = img_descriptors[second];
+	keypoints_2 = &img_keypoints[second];
+	desc_2 = &img_descriptors[second];
 
-	calc_dist_mat(desc_1, desc_2, true);
+	calc_dist_mat(*desc_1, *desc_2, true);
 
-	int feature_count_1 = keypoints_1.size();
-	int feature_count_2 = keypoints_2.size();
+	int feature_count_1 = keypoints_1->size();
+	int feature_count_2 = keypoints_2->size();
 
 	signature_tt<double> signature_1;
 	signature_tt<double> signature_2;
@@ -261,12 +268,12 @@ double calc_fast_emd(int first, int second) {
 	signature_2.Weights = new double[feature_count_2];
 
 	for (int i = 0; i < feature_count_1; ++i) {
-		signature_1.Weights[i] = calc_scalar_manitude(desc_1, i);
+		signature_1.Weights[i] = calc_scalar_manitude(*desc_1, i);
 		signature_1.Features[i] = i;
 	}
 
 	for (int i = 0; i < feature_count_2; ++i) {
-		signature_2.Weights[i] = calc_scalar_manitude(desc_2, i);
+		signature_2.Weights[i] = calc_scalar_manitude(*desc_2, i);
 		signature_2.Features[i] = i;
 	}
 

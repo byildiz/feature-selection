@@ -35,16 +35,13 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
-#define IMAGE_COUNT 10000
 #define IMAGE_WIDTH 1000
 
 // TODO: config
 /* CONFIGURATIONS */
-int keypoint_filter_threshold = 5;
-bool filter_kp = 1;
+int keypoint_filter_threshold = 1;
+bool filter_kp = 0;
 int sort_type = -1;
-float radius = 10;
-boost::math::normal_distribution<> norm_dist(0.0, 2);
 /* END CONFIGURATIONS */
 
 void help();
@@ -55,9 +52,10 @@ void print_keypoints(const vector<KeyPoint>& kp);
 bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs);
 void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc);
 void filter_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& f);
-void calc_density_space_mat(const Mat& img, vector<KeyPoint> kp, Mat& ds);
-void calc_density_space(const vector<KeyPoint>& kp);
-void calc_scale_density_space(const vector<KeyPoint>& kp);
+void calc_response_density_img(const Mat& img, vector<KeyPoint> kp, Mat& ds);
+void calc_reponse_response_density_space(const vector<KeyPoint>& kp);
+void calc_scale_density_img(const Mat& img, vector<KeyPoint> kp, Mat& ds);
+void calc_scale_response_density_space(const vector<KeyPoint>& kp);
 float keypoint_dist(const KeyPoint& k1, const KeyPoint& k2);
 float point_dist(const Point2f& p1, const Point2f& p2);
 bool response_comparator(const KeyPoint& p1, const KeyPoint& p2);
@@ -69,12 +67,12 @@ bool scale_comparator(const KeyPoint& p1, const KeyPoint& p2);
 
 vector<fs::path> img_paths;
 
-float density_space[IMAGE_WIDTH][IMAGE_WIDTH];
-float scale_density_space[IMAGE_WIDTH][IMAGE_WIDTH];
+float response_density_space[IMAGE_WIDTH][IMAGE_WIDTH];
+float scale_response_density_space[IMAGE_WIDTH][IMAGE_WIDTH];
 Mat current_img;
 
 vector<KeyPoint> filtered_keypoints;
-struct density_classcomp {
+struct response_density_classcomp {
 	bool operator()(const int& lhs, const int& rhs) const {
 		KeyPoint kp1, kp2;
 		kp1 = filtered_keypoints[lhs];
@@ -82,7 +80,7 @@ struct density_classcomp {
 		return density_comparator(kp1, kp2);
 	}
 };
-struct scale_density_classcomp {
+struct scale_response_density_classcomp {
 	bool operator()(const int& lhs, const int& rhs) const {
 		KeyPoint kp1, kp2;
 		kp1 = filtered_keypoints[lhs];
@@ -101,8 +99,6 @@ int main(int argc, char *argv[]) {
 	sort_type = atoi(argv[2]);
 	const char *imgs_path = argv[3];
 	const char *index_path = argv[4];
-	if (argc > 5)
-		radius = atof(argv[5]);
 
 	cout << "Reading image paths from " << imgs_path << endl;
 	string img_path;
@@ -147,7 +143,7 @@ int main(int argc, char *argv[]) {
 }
 
 void help() {
-	cout << "Usage: ./build_index <fc> <sort_type> <imgs_path> <index_path> <kdree_radius=10>" << endl;
+	cout << "Usage: ./build_index <fc> <sort_type> <imgs_path> <index_path>" << endl;
 }
 
 void print_progress(time_t start, int total, int& completed, int per_count) {
@@ -165,9 +161,10 @@ void print_progress(time_t start, int total, int& completed, int per_count) {
 
 void print_keypoints(const vector<KeyPoint>& kp) {
 	KeyPoint k;
+	cout << setprecision(3) << fixed;
 	for (int i = 0; i < (int) kp.size(); ++i) {
 		k = kp[i];
-		cout << "(" << k.pt.x << "," << k.pt.y << "): " << k.response << ", " << k.size << endl;
+		cout << "(" << k.pt.x << "\t" << k.pt.y << "):\t" << k.response << "\t" << k.size << "\t" << get_scale_density(k) << endl;
 	}
 }
 
@@ -195,7 +192,8 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	current_img = imread(img_path.c_str(), CV_LOAD_IMAGE_GRAYSCALE);
 
 	if (!current_img.data) {
-		cout << "--(!) Error reading image: " << img_path << endl;
+		cout << "Error reading image: " << img_path << endl;
+		return 0;
 	}
 
 	vector<KeyPoint> keypoints;
@@ -210,8 +208,8 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	}
 	// print_keypoints(keypoints);
 
-//	int fc = keypoints.size() * fc / 100;
-//	fc = fc > 10 ? fc : 10;
+	// int fc = keypoints.size() * fc / 100;
+	// fc = fc > 10 ? fc : 10;
 
 	// not enough feature, dont use them
 	if (keypoints.size() < 10) {
@@ -239,14 +237,6 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	// print_keypoints(selected_keypoints);
 	// cout << descriptors << endl;
 
-//	print_keypoints(selected_keypoints);
-//	calc_scalar_manitude(descriptors, keypoints);
-//	sort(keypoints.begin(), keypoints.end(), scalar_comparator);
-//	selected_keypoints.clear();
-//	for (int i = 0; i < 5; ++i)
-//		selected_keypoints.push_back(keypoints[i]);
-//	extractor->compute(current_img, selected_keypoints, descriptors);
-
 	// Mat img_with_kp(current_img);
 	// // Mat white = Mat::zeros(current_img.rows, current_img.cols, CV_8U);
 	// // drawKeypoints(white, selected_keypoints, img_with_kp, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
@@ -254,16 +244,14 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	// 		Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	// imshow(img_path, img_with_kp);
 	// waitKey(0);
-//
-//	Mat img_density;
-//	calc_density_space_mat(current_img, keypoints, img_density);
-//	cvtColor(img_density, img_density, CV_RGB2GRAY);
-//	Mat img_density_with_keypoints(img_density);
-//	drawKeypoints(img_density, selected_keypoints, img_density_with_keypoints,
-//			Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-//	imshow(img_path, img_density);
-//
-//	waitKey(0);
+
+	// Mat img_density = Mat::zeros(current_img.rows, current_img.cols, CV_8UC1);
+	// calc_scale_density_img(current_img, keypoints, img_density);
+	// Mat img_density_with_keypoints(img_density);
+	// drawKeypoints(img_density, selected_keypoints, img_density_with_keypoints,
+	// 		Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	// imshow(img_path, img_density_with_keypoints);
+	// waitKey(0);
 
 	descs = descriptors;
 	kps = selected_keypoints;
@@ -280,8 +268,19 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 	}
 	int filtered_kp_size = filtered_keypoints.size();
 
-	if (sort_type == -4) { // scale density with substrating
-		calc_scale_density_space(filtered_keypoints);
+	if (sort_type == -5) { // scale + scale density
+		sort(filtered_keypoints.begin(), filtered_keypoints.end(), scale_comparator);
+		vector<KeyPoint> scale_selected;
+		for (int i = 0; i < 2 * fc && i < filtered_kp_size; ++i) {
+			scale_selected.push_back(filtered_keypoints[i]);
+		}
+		calc_scale_response_density_space(scale_selected);
+		sort(scale_selected.begin(), scale_selected.end(), scale_density_comparator);
+		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
+			s.push_back(scale_selected[i]);
+		}
+	} else if (sort_type == -4) { // scale density with substrating
+		calc_scale_response_density_space(filtered_keypoints);
 		sort(filtered_keypoints.begin(), filtered_keypoints.end(), scale_density_comparator);
 
 		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
@@ -292,10 +291,11 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 			for (int j = 0; j < filtered_kp_size; j++) {
 				KeyPoint kp = filtered_keypoints[i];
 				float dist = keypoint_dist(kp, keypoint);
-				float density = boost::math::pdf(norm_dist, dist) * keypoint.size;
+				boost::math::normal_distribution<> norm_dist(0.0, 1 / keypoint.size);
+				float density = boost::math::pdf(norm_dist, dist);
 				int x = kp.pt.x;
 				int y = kp.pt.y;
-				scale_density_space[x][y] -= density;
+				scale_response_density_space[x][y] -= density;
 			}
 
 			// delete the selected keypoint
@@ -304,29 +304,30 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 			sort(filtered_keypoints.begin(), filtered_keypoints.end(), scale_density_comparator);
 		}
 	} else if (sort_type == -3) { // scale density with kdtree
-		calc_scale_density_space(filtered_keypoints);
+		calc_scale_response_density_space(filtered_keypoints);
 
 		// create keypoint map for easy deletion
-		map<int, KeyPoint, scale_density_classcomp> mk;
+		map<int, KeyPoint, scale_response_density_classcomp> mk;
 		map<int, KeyPoint>::iterator it;
 
+		// create kd-tree index
+		Mat coord = Mat::zeros(filtered_kp_size, 2, CV_32F);
 		for (int i = 0; i < filtered_kp_size; ++i) {
 			mk[i] = filtered_keypoints[i];
+			coord.ptr<float>(i)[0] = filtered_keypoints[i].pt.x;
+			coord.ptr<float>(i)[1] = filtered_keypoints[i].pt.y;
 		}
-
-		// create kd-tree index
-		Mat coord = Mat::zeros(mk.size(), 2, CV_32F);
-		for (it = mk.begin(); it != mk.end(); ++it) {
-			coord.ptr<float>(it->first)[0] = it->second.pt.x;
-			coord.ptr<float>(it->first)[1] = it->second.pt.y;
-		}
-		flann::Index kdtree_index(coord, flann::KDTreeIndexParams());
+		
+		flann::Index kdtree_index(coord, flann::KDTreeIndexParams(4));
 
 		int max_count = 100;
 		Mat indices = Mat::zeros(1, max_count, CV_32F);
 		Mat dists = Mat::zeros(1, max_count, CV_32F);
 
 		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
+			if (mk.size() == 0)
+				break;
+			
 			KeyPoint query_keypoint = mk.begin()->second;
 
 			s.push_back(query_keypoint);
@@ -334,14 +335,14 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 			Mat query = Mat::zeros(1, 2, CV_32F);
 			query.ptr<float>(0)[0] = query_keypoint.pt.x;
 			query.ptr<float>(0)[1] = query_keypoint.pt.y;
-
+			float radius = query_keypoint.size * query_keypoint.size / 4;
 			int found_count = kdtree_index.radiusSearch(query, indices, dists, radius, max_count, flann::SearchParams());
 			for (int j = 0; j < found_count; ++j) {
 				mk.erase(indices.at<int>(j));
 			}
 		}
 	} else if (sort_type == -2) { // scale density
-		calc_scale_density_space(filtered_keypoints);
+		calc_scale_response_density_space(filtered_keypoints);
 		sort(filtered_keypoints.begin(), filtered_keypoints.end(), scale_density_comparator);
 		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
 			s.push_back(filtered_keypoints[i]);
@@ -357,36 +358,36 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 			s.push_back(filtered_keypoints[i]);
 		}
 	} else if (sort_type == 2) { // response density
-		calc_density_space(filtered_keypoints);
+		calc_reponse_response_density_space(filtered_keypoints);
 		sort(filtered_keypoints.begin(), filtered_keypoints.end(), density_comparator);
 		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
 			s.push_back(filtered_keypoints[i]);
 		}
 	} else if (sort_type == 3) { // response density with kdtree
-		calc_density_space(filtered_keypoints);
+		calc_reponse_response_density_space(filtered_keypoints);
 
 		// create keypoint map for easy deletion
-		map<int, KeyPoint, density_classcomp> mk;
+		map<int, KeyPoint, response_density_classcomp> mk;
 		map<int, KeyPoint>::iterator it;
 
+		// create kd-tree index
+		Mat coord = Mat::zeros(filtered_kp_size, 2, CV_32F);
 		for (int i = 0; i < filtered_kp_size; ++i) {
 			mk[i] = filtered_keypoints[i];
+			coord.ptr<float>(i)[0] = filtered_keypoints[i].pt.x;
+			coord.ptr<float>(i)[1] = filtered_keypoints[i].pt.y;
 		}
-
-		// create kd-tree index
-		Mat coord = Mat::zeros(mk.size(), 2, CV_32F);
-		for (it = mk.begin(); it != mk.end(); ++it) {
-//			cout << it->first << "\t" << get_density(it->second) << endl;
-			coord.ptr<float>(it->first)[0] = it->second.pt.x;
-			coord.ptr<float>(it->first)[1] = it->second.pt.y;
-		}
-		flann::Index kdtree_index(coord, flann::KDTreeIndexParams());
+		
+		flann::Index kdtree_index(coord, flann::KDTreeIndexParams(4));
 
 		int max_count = 100;
 		Mat indices = Mat::zeros(1, max_count, CV_32F);
 		Mat dists = Mat::zeros(1, max_count, CV_32F);
 
 		for (int i = 0; i < fc && i < filtered_kp_size; ++i) {
+			if (mk.size() == 0)
+				break;
+
 			KeyPoint query_keypoint = mk.begin()->second;
 
 			s.push_back(query_keypoint);
@@ -394,23 +395,11 @@ void select_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& s, int fc) {
 			Mat query = Mat::zeros(1, 2, CV_32F);
 			query.ptr<float>(0)[0] = query_keypoint.pt.x;
 			query.ptr<float>(0)[1] = query_keypoint.pt.y;
-
-			int found_count = kdtree_index.radiusSearch(query, indices, dists,
-					radius, max_count, flann::SearchParams());
-
-//			cout << "me:" << mk.begin()->first << endl;
-//			cout << "found_count: " << found_count << endl;
-//			cout << "indices:" << endl;
-//			cout << indices << endl;
-//			cout << "dists:" << endl;
-//			cout << dists << endl;
-
-//			cout << "mk size before: " << mk.size() << endl;
+			float radius = query_keypoint.size * query_keypoint.size / 4;
+			int found_count = kdtree_index.radiusSearch(query, indices, dists, radius, max_count, flann::SearchParams());
 			for (int j = 0; j < found_count; ++j) {
 				mk.erase(indices.at<int>(j));
 			}
-//			cout << "mk size after: " << mk.size() << endl;
-//			cout << endl << endl;
 		}
 	}
 }
@@ -421,11 +410,11 @@ void filter_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& f) {
 	else
 		sort(k.begin(), k.end(), response_comparator);
 
-	for (int i = k.size() - 1; i > 0; --i) {
+	for (int i = k.size() - 1; i >= 0; --i) {
 		KeyPoint k1 = k[i];
 		bool add = 1;
-		for (int j = i - 1; j >= 0; --j) {
-			KeyPoint k2 = k[j];
+		for (int j = 0; j < f.size(); ++j) {
+			KeyPoint k2 = f[j];
 			float dist = keypoint_dist(k1, k2);
 			if (dist < keypoint_filter_threshold) {
 				add = 0;
@@ -435,29 +424,43 @@ void filter_keypoints(vector<KeyPoint>& k, vector<KeyPoint>& f) {
 		if (add)
 			f.push_back(k1);
 	}
-	reverse(f.begin(), f.end());
 }
 
-void calc_density_space_mat(const Mat& img, vector<KeyPoint> kp, Mat& ds) {
+void calc_response_density_img(const Mat& img, vector<KeyPoint> kp, Mat& ds) {
 	int rows = img.rows;
 	int cols = img.cols;
 	int size = kp.size();
-	ds = Mat::zeros(rows, cols, CV_32F);
+	Mat tmp = Mat::zeros(rows, cols, CV_32F);
 
+	float max_value = 0, min_value = 9999999;
 	for (int i = 0; i < cols; i++) {
 		for (int j = 0; j < rows; j++) {
 			float sum = 0;
 			for (int k = 0; k < size; k++) {
 				KeyPoint p = kp[k];
 				float dist = sqrt(pow(i - p.pt.x, 2) + pow(j - p.pt.y, 2));
-				sum += boost::math::pdf(norm_dist, dist) * p.response * 10;
+				boost::math::normal_distribution<> norm_dist(0.0, 1 / p.response * 100);
+				sum += boost::math::pdf(norm_dist, dist);
 			}
-			ds.ptr<float>(j)[i] = sum;
+			tmp.ptr<float>(j)[i] = sum;
+			if (sum > max_value)
+				max_value = sum;
+			if (sum < min_value)
+				min_value = sum;
 		}
 	}
+
+	ds = Mat(rows, cols, CV_8UC1);
+	for (int i = 0; i < cols; i++) {
+		for (int j = 0; j < rows; j++) {
+			ds.at<uchar>(j, i) = (tmp.at<float>(j, i) - min_value) / (max_value - min_value) * 255;
+		}
+	}
+
+	equalizeHist(ds, ds);
 }
 
-void calc_density_space(const vector<KeyPoint>& kp) {
+void calc_reponse_response_density_space(const vector<KeyPoint>& kp) {
 	int kp_size = kp.size();
 	for (int i = 0; i < kp_size; i++) {
 		KeyPoint ki = kp[i];
@@ -465,15 +468,50 @@ void calc_density_space(const vector<KeyPoint>& kp) {
 		for (int j = 0; j < kp_size; j++) {
 			KeyPoint kj = kp[j];
 			float dist = keypoint_dist(ki, kj);
-			density += boost::math::pdf(norm_dist, dist) * kj.response * 100;
+			boost::math::normal_distribution<> norm_dist(0.0, 1 / kj.response * 100);
+			density += boost::math::pdf(norm_dist, dist);
 		}
 		int x = ki.pt.x;
 		int y = ki.pt.y;
-		density_space[x][y] = density;
+		response_density_space[x][y] = density;
 	}
 }
 
-void calc_scale_density_space(const vector<KeyPoint>& kp) {
+void calc_scale_density_img(const Mat& img, vector<KeyPoint> kp, Mat& ds) {
+	int rows = img.rows;
+	int cols = img.cols;
+	int size = kp.size();
+	Mat tmp = Mat::zeros(rows, cols, CV_32F);
+
+	float max_value = 0, min_value = 9999999;
+	for (int i = 0; i < cols; i++) {
+		for (int j = 0; j < rows; j++) {
+			float sum = 0;
+			for (int k = 0; k < size; k++) {
+				KeyPoint p = kp[k];
+				float dist = sqrt(pow(i - p.pt.x, 2) + pow(j - p.pt.y, 2));
+				boost::math::normal_distribution<> norm_dist(0.0, 1 / p.size);
+				sum += boost::math::pdf(norm_dist, dist);
+			}
+			tmp.ptr<float>(j)[i] = sum;
+			if (sum > max_value)
+				max_value = sum;
+			if (sum < min_value)
+				min_value = sum;
+		}
+	}
+
+	ds = Mat(rows, cols, CV_8UC1);
+	for (int i = 0; i < cols; i++) {
+		for (int j = 0; j < rows; j++) {
+			ds.at<uchar>(j, i) = (tmp.at<float>(j, i) - min_value) / (max_value - min_value) * 255;
+		}
+	}
+
+	equalizeHist(ds, ds);
+}
+
+void calc_scale_response_density_space(const vector<KeyPoint>& kp) {
 	int kp_size = kp.size();
 	for (int i = 0; i < kp_size; i++) {
 		KeyPoint ki = kp[i];
@@ -481,11 +519,12 @@ void calc_scale_density_space(const vector<KeyPoint>& kp) {
 		for (int j = 0; j < kp_size; j++) {
 			KeyPoint kj = kp[j];
 			float dist = keypoint_dist(ki, kj);
-			density += boost::math::pdf(norm_dist, dist) * kj.size;
+			boost::math::normal_distribution<> norm_dist(0.0, 1 / kj.size);
+			density += boost::math::pdf(norm_dist, dist);
 		}
 		int x = ki.pt.x;
 		int y = ki.pt.y;
-		scale_density_space[x][y] = density;
+		scale_response_density_space[x][y] = density;
 	}
 }
 
@@ -497,8 +536,7 @@ float keypoint_dist(const KeyPoint& k1, const KeyPoint& k2) {
 float point_dist(const Point2f& p1, const Point2f& p2) {
 	float x_dist = p1.x - p2.x;
 	float y_dist = p1.y - p2.y;
-	float dist;
-	dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+	float dist = sqrt(x_dist*x_dist + y_dist*y_dist);
 	return dist;
 }
 
@@ -509,7 +547,7 @@ bool response_comparator(const KeyPoint& p1, const KeyPoint& p2) {
 float get_density(const KeyPoint& k) {
 	int x = k.pt.x;
 	int y = k.pt.y;
-	return density_space[x][y];
+	return response_density_space[x][y];
 }
 
 bool density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
@@ -519,7 +557,7 @@ bool density_comparator(const KeyPoint& p1, const KeyPoint& p2) {
 float get_scale_density(const KeyPoint& k) {
 	int x = k.pt.x;
 	int y = k.pt.y;
-	return scale_density_space[x][y];
+	return scale_response_density_space[x][y];
 }
 
 bool scale_density_comparator(const KeyPoint& p1, const KeyPoint& p2) {

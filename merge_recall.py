@@ -17,13 +17,13 @@ def main():
 	
 	img_count = 0
 	part_count = 0;
-	recall_sum = [0.0]*101
-	precision_sum = [0.0]*101
+	recall_sum = [0.0]*1001
+	precision_sum = [0.0]*1001
 	for i in range(part):
 		f = open(join(path, 'recall_' + str(i) + '.txt'), 'r')
 		part_count = int(f.readline())
 		img_count += part_count
-		for j in range(101):
+		for j in range(1001):
 			col = f.readline().split()
 			recall_sum[j] += float(col[0]) * part_count
 			precision_sum[j] += float(col[1]) * part_count

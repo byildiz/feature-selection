@@ -42,7 +42,7 @@ def main():
 		img1 = line[0]
 		img2 = line[1]
 		dist = line[2]
-		norm = (dist - min_dist) / (max_dist - min_dist) * 100
+		norm = (dist - min_dist) / (max_dist - min_dist) * 1000
 		update_results(results, img1, img2, norm, False)
 		#print "%-5s %-5s %.2f" % (img1, img2, norm)
 		
@@ -62,8 +62,8 @@ def main():
 	
 	count = len(results)
 	print count
-	recall_sum = [0.0]*101
-	precision_sum = [0.0]*101
+	recall_sum = [0.0]*1001
+	precision_sum = [0.0]*1001
 	for img1 in results:
 		group1 = int(find_group(img1))
 		var1 = int(find_variation(img1))
@@ -98,7 +98,7 @@ def main():
 			last_precision = precision
 			# print "{:>10f} {:>10f} {:>10f}".format(recall, precision, dist)
 
-		for i in range(int(last_dist), 101):
+		for i in range(int(last_dist), 1001):
 			recall_sum[i] += last_recall
 			precision_sum[i] += last_precision
 
