@@ -4,6 +4,7 @@ import re
 import sys
 import operator
 import math
+import numpy as np
 
 def main():
 	args = sys.argv[1:]
@@ -46,10 +47,10 @@ def main():
 		update_results(results, img1, img2, norm, False)
 		#print "%-5s %-5s %.2f" % (img1, img2, norm)
 		
-	# # count variations and sort by dist
-	# var_counts = [0]*51
-	# for img1 in results:
-	# 	results[img1] = sorted(results[img1], cmp=dist_cmp)
+	# count variations and sort by dist
+	var_counts = [0]*51
+	for img1 in results:
+		results[img1] = sorted(results[img1], cmp=dist_cmp)
 
 	# # results = sorted(results.items(), key=path_key)
 
@@ -60,17 +61,18 @@ def main():
 	#  		print "\t", img2, dist
 	# exit()
 	
-	count = len(results)
-	print count
-	recall_sum = [0.0]*1001
-	precision_sum = [0.0]*1001
+	counts = np.zeros(51)
+	# recall_sum = [0.0]*1001
+	recall_sum = np.zeros((51, 1001))
+	# precision_sum = [0.0]*1001
+	precision_sum = np.zeros((51, 1001))
 	for img1 in results:
 		group1 = int(find_group(img1))
 		var1 = int(find_variation(img1))
+		counts[var1] += 1;
 
-		if only_org:
-			if var1 != 0:
-				continue
+		if only_org and var1 != 0:
+			continue
 
 		true_count = 0.0
 		false_count = 0.0
@@ -90,8 +92,10 @@ def main():
 			precision = true_count / img_count * 100
 
 			for i in range(int(last_dist), int(dist)+1):
-				recall_sum[i] += last_recall
-				precision_sum[i] += last_precision
+				# recall_sum[i] += last_recall
+				recall_sum[var1][i] += last_recall
+				# precision_sum[i] += last_precision
+				precision_sum[var1][i] += last_precision
 
 			last_dist = dist+1
 			last_recall = recall
@@ -99,11 +103,18 @@ def main():
 			# print "{:>10f} {:>10f} {:>10f}".format(recall, precision, dist)
 
 		for i in range(int(last_dist), 1001):
-			recall_sum[i] += last_recall
-			precision_sum[i] += last_precision
+			# recall_sum[i] += last_recall
+			recall_sum[var1][i] += last_recall
+			# precision_sum[i] += last_precision
+			precision_sum[var1][i] += last_precision
 
+	# for i in range(len(recall_sum)):
+	# 	print recall_sum[i] / count, precision_sum[i] / count
+	for i in range(len(counts)):
+		print counts[i]
 	for i in range(len(recall_sum)):
-		print recall_sum[i] / count, precision_sum[i] / count
+		for j in range(len(recall_sum[i])):
+			print recall_sum[i][j], precision_sum[i][j]
 
 def find_max_group(list):
 	dict = {}

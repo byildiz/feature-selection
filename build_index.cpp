@@ -42,6 +42,7 @@ namespace fs = boost::filesystem;
 int keypoint_filter_threshold = 1;
 bool filter_kp = 0;
 int sort_type = -1;
+bool show_images = 0;
 /* END CONFIGURATIONS */
 
 void help();
@@ -237,21 +238,30 @@ bool extract_descriptors(int index, int fc, vector<KeyPoint>& kps, Mat& descs) {
 	// print_keypoints(selected_keypoints);
 	// cout << descriptors << endl;
 
-	// Mat img_with_kp(current_img);
-	// // Mat white = Mat::zeros(current_img.rows, current_img.cols, CV_8U);
-	// // drawKeypoints(white, selected_keypoints, img_with_kp, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	// drawKeypoints(current_img, selected_keypoints, img_with_kp,
-	// 		Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	// imshow(img_path, img_with_kp);
-	// waitKey(0);
+	if (show_images) {
+		Mat white = Mat::ones(current_img.rows, current_img.cols, CV_8UC1) * 255;
+		Mat black = Mat::zeros(current_img.rows, current_img.cols, CV_8UC1);
+		Mat img_density = Mat::zeros(current_img.rows, current_img.cols, CV_8UC1);
+		Mat img(current_img);
 
-	// Mat img_density = Mat::zeros(current_img.rows, current_img.cols, CV_8UC1);
-	// calc_scale_density_img(current_img, keypoints, img_density);
-	// Mat img_density_with_keypoints(img_density);
-	// drawKeypoints(img_density, selected_keypoints, img_density_with_keypoints,
-	// 		Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	// imshow(img_path, img_density_with_keypoints);
-	// waitKey(0);
+		drawKeypoints(current_img, keypoints, img, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		imshow("kp_on_img", img);
+
+		drawKeypoints(black, keypoints, img, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		imshow("kp_on_black", img);
+		
+		drawKeypoints(black, selected_keypoints, img, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		imshow("selected_kp_on_white", img);
+
+		calc_scale_density_img(current_img, keypoints, img_density);
+		imshow("density", img_density);
+
+		drawKeypoints(img_density, selected_keypoints, img, Scalar::all(-1), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		imshow("selected_kp_on_density", img);
+
+		imshow("img", current_img);
+		waitKey(0);
+	}
 
 	descs = descriptors;
 	kps = selected_keypoints;
@@ -490,7 +500,7 @@ void calc_scale_density_img(const Mat& img, vector<KeyPoint> kp, Mat& ds) {
 			for (int k = 0; k < size; k++) {
 				KeyPoint p = kp[k];
 				float dist = sqrt(pow(i - p.pt.x, 2) + pow(j - p.pt.y, 2));
-				boost::math::normal_distribution<> norm_dist(0.0, 1 / p.size);
+				boost::math::normal_distribution<> norm_dist(0.0, 20 / p.size);
 				sum += boost::math::pdf(norm_dist, dist);
 			}
 			tmp.ptr<float>(j)[i] = sum;
@@ -519,7 +529,7 @@ void calc_scale_response_density_space(const vector<KeyPoint>& kp) {
 		for (int j = 0; j < kp_size; j++) {
 			KeyPoint kj = kp[j];
 			float dist = keypoint_dist(ki, kj);
-			boost::math::normal_distribution<> norm_dist(0.0, 1 / kj.size);
+			boost::math::normal_distribution<> norm_dist(0.0, 20 / kj.size);
 			density += boost::math::pdf(norm_dist, dist);
 		}
 		int x = ki.pt.x;

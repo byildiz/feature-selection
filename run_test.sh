@@ -5,16 +5,19 @@ ulimit -s unlimited
 dataset=$1
 fcount=$2
 part=$3
-methods=( "scale_substract" "scale_kdtree" "scale_density" "scale" "response" "response_density" "response_kdtree" )
-numbers=( -4 -3 -2 -1 1 2 3 )
+#methods=( "scale_kdtree" "scale" "response" "scale_density" "response_density" "response_kdtree" "scale_substract" )
+#numbers=( -3 -1 1 -2 2 3 -4 )
+methods=( "scale_kdtree" "response" )
+numbers=( -3 1 )
 gd="350"
 
 partsfile=$dataset/parts.txt
+rm $partsfile
 for i in $(seq 0 $((part-1))); do echo $i >> $partsfile; done
 echo "Dividing..."
 ./divide.py $dataset $part
 
-for i in {1..6}; do
+for i in $(seq 0 1); do
 	echo "Dateset: $dataset, Method: ${methods[i]}, ${numbers[i]}"
 	path=$dataset/${methods[i]}_$fcount
 	mkdir $path

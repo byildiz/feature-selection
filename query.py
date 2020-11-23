@@ -73,9 +73,9 @@ def main():
 		total_recall += recall
 		total_precision += precision
 
-		#print img1 + ':', '(recall: ' + str(recall) + ')', '(precision: ' + str(precision) + ')',
-		#print false_negatives,
-		#print
+		print img1 + ':', '(recall: ' + str(recall) + ')', '(precision: ' + str(precision) + ')',
+		print false_negatives,
+		print
 
 	#print 'Variation errors:'
 	#for i in range(len(variation_errors)):
